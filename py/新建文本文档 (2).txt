@@ -1,0 +1,131 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Feb  6 13:29:06 2018
+
+@author: lfzhou
+"""
+
+
+import random
+seq = [i for i in range(10)]
+random.shuffle(seq)
+seq
+    
+
+        
+####   方法一  依次取最小
+label = len(seq) 
+res_list =[]
+      
+while label>=1:
+    min =seq[0]
+    pos = 0
+    for i in range(len(seq)):
+        if seq[i]< min:
+            min = seq[i]
+            pos = i
+        else:
+            pass
+    res_list.append(min)
+    seq.pop(pos)
+    label -=1
+    
+res_list
+'''
+res_list
+Out[110]: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+'''  
+
+####   方法一  改进  依次取最小但是不生成临时的list
+label = 0
+while label<len(seq):
+    min = seq[label]
+    pos = label
+    for i in range(label,len(seq)):
+        if seq[i]< min:
+            min = seq[i]
+            pos = i
+        else:
+            pass
+    tmp = seq[label]
+    seq[label] = min
+    seq[pos] = tmp
+    label +=1
+seq
+             
+####   方法二  比较前后数据的位置          
+label =1
+while label >0:
+    label = 0
+    for i in range(1,len(seq)):
+        tmp = seq[i-1]
+        if tmp < seq[i]:
+            pass
+        else:
+            seq[i-1] = seq[i]
+            seq[i]  = tmp
+            label +=1
+seq
+
+'''    
+seq：[3, 16, 2, 11, 8, 4, 6, 9, 14, 0, 18, 15, 1, 19, 10, 17, 12, 7, 13, 5]
+Out[22]: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+'''   
+####   方法三  昨天最开始的想法
+
+    
+def seqSplit(seq):        
+    if len(seq)==1:
+        return seq
+    else:
+        pos = int(len(seq)/2)
+        seq_list1 = seqSplit(seq[:pos])
+        seq_list2 = seqSplit(seq[pos:])
+        res_list = mergesort(seq_list1,seq_list2)
+        return res_list
+       
+       
+def mergesort(seq_list1,seq_list2):    
+    '''list1 > list2'''
+    result = []
+    while len(seq_list1)>0 and len(seq_list2)>0 :     
+        if seq_list1[0]<=seq_list2[0]:
+            result.append(seq_list2[0])
+            seq_list2.pop(0)
+        else:
+            result.append(seq_list1[0])
+            seq_list1.pop(0)     
+    result = result + seq_list2
+    result = result + seq_list1
+    return result 
+            
+def mergesort(seq_list1,seq_list2):
+    seq = seq_list1 + seq_list2
+    label = len(seq) 
+    while label >0:
+        label = 0
+        for i in range(1,len(seq)):
+            tmp = seq[i-1]
+            if tmp < seq[i]:
+                pass
+            else:
+                seq[i-1] = seq[i]
+                seq[i]  = tmp
+                label +=1
+    return seq
+seq
+              
+
+import sys   
+sys.setrecursionlimit(100)        
+result = seqSplit(seq)
+        
+
+
+           
+
+
+
+####   方法四  昨天后来不用的想法，       
+
+        
