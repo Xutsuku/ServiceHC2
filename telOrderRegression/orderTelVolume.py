@@ -5,13 +5,6 @@ Created on Tue Mar 20 16:36:32 2018
 @author: lfzhou
 """
 
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Mar  6 16:15:34 2018
-
-@author: lfzhou
-"""
-
 from pandas import read_excel
 from datetime import date
 from sklearn.preprocessing import MinMaxScaler
@@ -20,7 +13,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import numpy as np
-from sklearn.cross_validation import train_test_split
+
 
 
 def pulsWeekday(df, colname):
@@ -126,7 +119,7 @@ def IsweekdayInt(x):
     return y
 
 
-def dataMerge(language, ifdropna, SL, Staff, Other):
+def dataMerge(language, ifdropna, SL, Staff, Other, key=['lang', 'product', 'date']):
     '''
     目的是合并多个sql运行出来的数据
     language : 输入需要的语言
@@ -134,12 +127,13 @@ def dataMerge(language, ifdropna, SL, Staff, Other):
     sl_hour ： sl数据
     staff： 员工数目
     Other： 等待时间等其他因素，可填可不填,默认可以是空df []
+    key :如果是按照hour的话，需要变为key=['lang','product','date','hour']
     '''
     SL = lang2Tans(SL, 'lang')
-    dataSample = pd.merge(SL, Staff, how='inner', on=['lang', 'product', 'date'])
+    dataSample = pd.merge(SL, Staff, how='inner', on=key)
 
     if len(Other) > 0:
-        dataSample = pd.merge(dataSample, Other, how='inner', on=['lang', 'product', 'date'])
+        dataSample = pd.merge(dataSample, Other, how='inner', on=key)
         dataset = pulsWeekday(dataSample, 'date')
     else:
         dataset = pulsWeekday(dataSample, 'date')
@@ -173,7 +167,7 @@ def ModelSet(data, ifNorm, colindex):
     return data
 
 
-def Modelconfig(data, Y):
+def Modelconfig(data, Y, size=0.8):
     '''
      输出实际的模型的各项信息 :
      coef
@@ -181,8 +175,9 @@ def Modelconfig(data, Y):
      rmse
      residual
     '''
-
-    X_train, X_test, Y_train, Y_test = train_test_split(data, Y, random_state=1)
+    length = int(data.shape[0] * 0.8)
+    # X_train,X_test,Y_train,Y_test = train_test_split(data,Y, random_state=1)
+    X_train, X_test, Y_train, Y_test = data[0:length], data[length:-1], Y[0:length], Y[length:-1]
     print('-----Shape of X_train,X_test,Y_train,Y_test-------')
     print(X_train.shape, len(Y_train), X_test.shape, len(Y_test))
 
@@ -203,5 +198,68 @@ def Modelconfig(data, Y):
     print("---top 20 residual is:", res[:20])
 
     return X_train, X_test, Y_train, Y_test, y_pred, model
+
+
+def datasetMerge(path, lang, product='机票', ifdropna=False, sheet=['SL_daily', 'Staff_daily', 'queue_daily'],
+                 key=['date', 'lang']):
+    '''
+    读取excel的数据并合并为最后的input data
+    sheet3 为avgdeal 或者 queun 这两个变量，具体名字可以更改
+    key 为sl和staff 的total join 时，数据为daily 还是hour 格式，如果是hour 则更改为['date','lang','hour']
+    '''
+    SL = read_excel(path, sheetname=sheet[0])
+    Staff = read_excel(path, sheetname=sheet[1])
+    Other = read_excel(path, sheetname=sheet[2])
+    dataset = dataMerge(lang, ifdropna, SL, Staff, Other)
+
+    eidtotal = Staff[(Staff['product'] == 'total') & (Staff['lang'] == lang)]
+    dataset = pd.merge(dataset, eidtotal, how='inner', on=key)
+    dataset.drop(['product_y'], axis=1, inplace=True)
+
+    dataset.rename(columns={'eidno_x': 'eidPro', 'eidno_y': 'eidno', 'product_x': 'product'}, inplace=True)
+
+    print('shape:\n', dataset.shape)
+    print('product value counts:', dataset['product'].value_counts())
+
+    data = dataset[dataset['product'] == product]
+    print(data.head())
+    return data
+
+
+def telorderVolume(data, fea_cols, value, telordRate, ifdropna=False, y_var='totalcallincount', ifnorm=False):
+    print('------- the origin analysis pairplot-----------')
+    sns.pairplot(data, x_vars=fea_cols, y_vars=y_var, size=7, aspect=0.4, kind='reg')
+
+    # -----Y
+    Y = data.ix[:, 'totalcallincount'].values
+
+    X = data[fea_cols]
+    X = X.fillna(X.mean())
+
+    X = ModelSet(X, ifnorm, -1)  # True代表需要归一化
+
+    print('-------------- the model-----------')
+    X_train, X_test, Y_train, Y_test, y_pred, model = Modelconfig(X, Y)
+
+    print('---------------the predict and test figure -------')
+    print('len y_pred:', len(Y_test))
+    figureRoc(y_pred, Y_test, len(Y_test))
+
+    print('------------the Formula -------')
+    print(printFormula(fea_cols, model))
+
+    print('---------------Value ------------------')
+    for i, pos in enumerate(fea_cols):
+        print(pos, value[i])
+
+    CallCapicty = caluResut(fea_cols, model, 'value', value)
+    print('电话量:', CallCapicty)
+
+    ordVolume = int(CallCapicty / telordRate)
+    print('订单量:', ordVolume)
+
+    return printFormula(fea_cols, model), ordVolume, CallCapicty
+
+
 
 
